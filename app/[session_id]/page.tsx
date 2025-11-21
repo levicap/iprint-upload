@@ -9,6 +9,7 @@ export default function UploadPage() {
   const router = useRouter();
   const sessionId = params.session_id as string;
 
+  // --- LOGIC STARTS HERE (Unchanged) ---
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -28,46 +29,50 @@ export default function UploadPage() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const newFiles = Array.from(e.dataTransfer.files);
-      
+
       // Validate file types
-      const validFiles = newFiles.filter(file => {
+      const validFiles = newFiles.filter((file) => {
         const validTypes = [
-          'application/pdf',
-          'image/jpeg',
-          'image/jpg', 
-          'image/png',
-          'application/postscript', // AI files
-          'image/vnd.adobe.photoshop', // PSD files
-          'image/tiff',
-          'application/illustrator'
+          "application/pdf",
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "application/postscript", // AI files
+          "image/vnd.adobe.photoshop", // PSD files
+          "image/tiff",
+          "application/illustrator",
         ];
-        return validTypes.includes(file.type) || 
-               file.name.match(/\.(pdf|jpg|jpeg|png|ai|psd|tiff|tif|eps)$/i);
+        return (
+          validTypes.includes(file.type) ||
+          file.name.match(/\.(pdf|jpg|jpeg|png|ai|psd|tiff|tif|eps)$/i)
+        );
       });
 
       if (validFiles.length !== newFiles.length) {
-        setError("Some files were rejected. Only PDF, JPG, PNG, AI, PSD, TIFF, and EPS files are allowed.");
+        setError(
+          "Some files were rejected. Only PDF, JPG, PNG, AI, PSD, TIFF, and EPS files are allowed."
+        );
       } else {
         setError("");
       }
 
-      setFiles(prev => [...prev, ...validFiles]);
+      setFiles((prev) => [...prev, ...validFiles]);
     }
   };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles]);
+      setFiles((prev) => [...prev, ...newFiles]);
       setError("");
     }
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
     setError("");
   };
 
@@ -81,14 +86,14 @@ export default function UploadPage() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
-        const base64 = reader.result?.toString().split(',')[1];
+        const base64 = reader.result?.toString().split(",")[1];
         if (base64) {
           resolve(base64);
         } else {
-          reject(new Error('Failed to convert file'));
+          reject(new Error("Failed to convert file"));
         }
       };
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = () => reject(new Error("Failed to read file"));
       reader.readAsDataURL(file);
     });
   };
@@ -100,9 +105,11 @@ export default function UploadPage() {
     }
 
     // Validate file sizes (50MB max per file)
-    const oversizedFiles = files.filter(f => f.size > 50 * 1024 * 1024);
+    const oversizedFiles = files.filter((f) => f.size > 50 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
-      setError(`Some files exceed 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      setError(
+        `Some files exceed 50MB: ${oversizedFiles.map((f) => f.name).join(", ")}`
+      );
       return;
     }
 
@@ -117,23 +124,26 @@ export default function UploadPage() {
         files.map(async (file) => ({
           name: file.name,
           data: await convertFileToBase64(file),
-          type: file.type || 'application/octet-stream'
+          type: file.type || "application/octet-stream",
         }))
       );
 
       setUploadProgress(40);
 
       // Call n8n webhook
-      const response = await fetch('https://auto.moezzhioua.com/webhook/file-upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          files: filesData
-        })
-      });
+      const response = await fetch(
+        "https://auto.moezzhioua.com/webhook/file-upload",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            files: filesData,
+          }),
+        }
+      );
 
       setUploadProgress(60);
 
@@ -146,11 +156,11 @@ export default function UploadPage() {
       setUploadProgress(80);
 
       if (!result.success) {
-        throw new Error(result.message || 'Upload failed');
+        throw new Error(result.message || "Upload failed");
       }
 
       if (!result.payment_url) {
-        throw new Error('Payment URL not received');
+        throw new Error("Payment URL not received");
       }
 
       setUploadProgress(100);
@@ -159,13 +169,12 @@ export default function UploadPage() {
       setTimeout(() => {
         window.location.href = result.payment_url;
       }, 500);
-
     } catch (err) {
-      console.error('Upload error:', err);
+      console.error("Upload error:", err);
       setError(
-        err instanceof Error 
-          ? err.message 
-          : 'Upload failed. Please try again or contact support.'
+        err instanceof Error
+          ? err.message
+          : "Upload failed. Please try again or contact support."
       );
       setUploading(false);
       setUploadProgress(0);
@@ -173,235 +182,296 @@ export default function UploadPage() {
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
+  // --- LOGIC ENDS HERE ---
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col">
-      {/* Header with Logo */}
-      <header className="border-b border-gray-200 py-4 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center">
-            <Image 
-              src="/iprintlogo.png" 
-              alt="iPrint Logo" 
-              width={120} 
-              height={40} 
-              className="object-contain"
-            />
+    <div className="min-h-screen bg-gray-50 text-slate-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-x-hidden">
+      {/* Subtle Background Mesh/Gradient */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-slate-100 to-transparent opacity-70 blur-3xl rounded-full" />
+      </div>
+
+      {/* Modern Sticky Header */}
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3 group cursor-pointer">
+            <div className="relative transition-transform group-hover:scale-105 duration-300">
+               {/* Replaced with placeholder if no image found, but keeping your logic */}
+              <Image
+                src="/iprintlogo.png"
+                alt="iPrint Logo"
+                width={100}
+                height={32}
+                className="object-contain"
+                priority
+              />
+            </div>
+            <div className="h-6 w-px bg-slate-300 mx-2 hidden sm:block" />
+            <span className="text-sm font-medium text-slate-500 hidden sm:block">
+              Secure Upload Portal
+            </span>
           </div>
-          <h1 className="text-xl font-semibold">Design Upload Portal</h1>
+
+          <div className="flex items-center gap-4">
+             {/* Step Indicator */}
+            <div className="hidden md:flex items-center gap-2 text-sm font-medium">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
+                <span>Upload</span>
+                <div className="w-8 h-px bg-slate-200" />
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
+                <span className="text-slate-400">Payment</span>
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Upload Your Designs</h1>
-            <p className="text-gray-600">Submit multiple design files for printing</p>
+      <main className="flex-grow flex items-center justify-center p-4 sm:p-8 z-10">
+        <div className="w-full max-w-3xl animate-fade-in-up">
+          
+          <div className="text-center mb-10 space-y-3">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+              Let's get your files printed.
+            </h1>
+            <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
+              Drag and drop your designs below. We support all high-quality print formats.
+            </p>
             {sessionId && (
-              <p className="text-sm text-gray-500 mt-2">
-                Order: {sessionId.slice(0, 25)}...
-              </p>
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-medium mt-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"/>
+                Session: {sessionId.slice(0, 18)}...
+              </div>
             )}
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          )}
-          
-          {/* Upload Area */}
-          <div 
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
-              isDragging 
-                ? "border-black bg-gray-50" 
-                : uploading 
-                ? "border-gray-300 bg-gray-50 cursor-not-allowed"
-                : "border-gray-300 hover:border-gray-500"
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={uploading ? undefined : triggerFileInput}
-          >
-            <div className="flex flex-col items-center justify-center">
-              <svg 
-                className="w-12 h-12 text-gray-400 mb-4" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth="2" 
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                ></path>
-              </svg>
-              <p className="text-lg mb-2">Drag & drop files here</p>
-              <p className="text-gray-500 mb-4">or</p>
-              <button 
-                type="button"
-                disabled={uploading}
-                className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                Browse Files
-              </button>
-              <p className="text-gray-500 mt-4 text-sm">Supports PDF, JPG, PNG, AI, PSD, TIFF, EPS (max 50MB per file)</p>
-            </div>
+          {/* Card Container */}
+          <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
             
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              multiple
-              disabled={uploading}
-              accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.tiff,.tif,.eps"
-            />
-          </div>
-
-          {/* Upload Progress */}
-          {uploading && uploadProgress > 0 && (
-            <div className="mt-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Uploading files...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-black h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-              {uploadProgress === 100 && (
-                <p className="text-center text-sm text-gray-600 mt-2">
-                  Redirecting to payment...
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Selected Files List */}
-          {files.length > 0 && (
-            <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Selected Files ({files.length})</h2>
-                <button 
-                  type="button"
-                  onClick={() => setFiles([])}
-                  disabled={uploading}
-                  className="text-gray-500 hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Clear All
-                </button>
-              </div>
-              
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {files.map((file, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200"
-                  >
-                    <div className="flex items-center truncate flex-1">
-                      <svg 
-                        className="w-5 h-5 text-gray-500 mr-3 flex-shrink-0" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth="2" 
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        ></path>
-                      </svg>
-                      <div className="truncate">
-                        <span className="truncate text-black block">{file.name}</span>
-                        <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
-                      </div>
-                    </div>
-                    <button 
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      disabled={uploading}
-                      className="text-gray-400 hover:text-black ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg 
-                        className="w-5 h-5" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth="2" 
-                          d="M6 18L18 6M6 6l12 12"
-                        ></path>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-              
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={uploading || files.length === 0}
-                className="w-full mt-8 bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {uploading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Uploading...
-                  </>
-                ) : (
-                  'Upload Designs & Continue to Payment'
-                )}
-              </button>
-
-              {/* Info Box */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start">
-                  <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <div className="p-6 sm:p-10">
+              {/* Error Alert */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-shake">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <div className="text-sm text-blue-700">
-                    <p className="font-semibold mb-1">🔒 Secure Upload</p>
-                    <p>Your files are securely stored in Google Drive and you'll be redirected to complete your payment after uploading.</p>
+                  <p className="text-sm font-medium text-red-800">{error}</p>
+                </div>
+              )}
+
+              {/* Upload Area */}
+              <div
+                className={`relative group border-2 border-dashed rounded-2xl p-10 sm:p-16 text-center cursor-pointer transition-all duration-300 ease-out ${
+                  isDragging
+                    ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
+                    : uploading
+                    ? "border-slate-200 bg-slate-50 cursor-not-allowed opacity-70"
+                    : "border-slate-300 hover:border-slate-400 hover:bg-slate-50/30"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={uploading ? undefined : triggerFileInput}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  multiple
+                  disabled={uploading}
+                  accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.tiff,.tif,.eps"
+                />
+
+                <div className="flex flex-col items-center justify-center gap-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-300 ${isDragging ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}>
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
                   </div>
+                  
+                  <div className="space-y-1">
+                    <p className="text-xl font-semibold text-slate-900">
+                      {isDragging ? "Drop files now" : "Click or drag to upload"}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      PDF, JPG, PNG, AI, PSD, TIFF, EPS (Max 50MB)
+                    </p>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    className="mt-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-full shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50"
+                  >
+                    Browse Computer
+                  </button>
                 </div>
               </div>
+
+              {/* Progress Bar */}
+              {uploading && uploadProgress > 0 && (
+                <div className="mt-8 space-y-2 animate-fade-in">
+                  <div className="flex justify-between text-sm font-medium text-slate-700">
+                    <span>Uploading & Processing...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-gray-900 to-black h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  {uploadProgress === 100 && (
+                    <p className="text-center text-sm text-green-600 font-medium mt-2 animate-pulse">
+                      Complete! Redirecting to secure payment...
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* File List */}
+              {files.length > 0 && (
+                <div className="mt-10">
+                  <div className="flex justify-between items-end mb-4 border-b border-slate-100 pb-2">
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Attached Files <span className="text-slate-400 ml-1 font-normal text-base">({files.length})</span>
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setFiles([])}
+                      disabled={uploading}
+                      className="text-sm text-slate-500 hover:text-red-600 transition-colors font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    {files.map((file, index) => (
+                      <div
+                        key={index}
+                        className="group flex items-center p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                      >
+                        {/* File Icon based on type could go here, using generic for now */}
+                        <div className="w-10 h-10 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 mr-4">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{formatFileSize(file.size)}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          disabled={uploading}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-0 focus:opacity-100"
+                          title="Remove file"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={uploading || files.length === 0}
+                      className="w-full relative group overflow-hidden bg-slate-900 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
+                    >
+                        <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                        <span className="relative flex items-center justify-center gap-2">
+                        {uploading ? (
+                            <>
+                            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Processing...
+                            </>
+                        ) : (
+                            <>
+                            Upload & Continue to Payment
+                            <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                            </>
+                        )}
+                        </span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            
+            {/* Security Footer inside card */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>Files are encrypted and stored securely via Google Drive integration.</span>
+            </div>
+          </div>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 py-6 px-4">
-        <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm">
-          <p>© 2025 iPrint Design Upload. All rights reserved.</p>
+      {/* Modern Dark Footer */}
+      <footer className="bg-slate-900 text-slate-400 py-12 sm:py-16 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
+            <div className="col-span-1 md:col-span-1">
+              <h3 className="text-white text-lg font-bold mb-4">iPrint</h3>
+              <p className="text-sm leading-relaxed">
+                Premium printing services for professionals. High quality, fast turnaround, and secure handling of your creative assets.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Services</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">Digital Printing</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Large Format</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Corporate Gifts</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Support</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">File Guidelines</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Track Order</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm">© 2025 iPrint Design Upload. All rights reserved.</p>
+            <div className="flex gap-6">
+               {/* Social placeholders */}
+               <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
+               <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
+               <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
