@@ -222,7 +222,7 @@ export default function UploadPage() {
              {/* Step Indicator */}
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
-                <span>Upload</span>
+                <span>Upload file</span>
                 <div className="w-8 h-px bg-slate-200" />
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                 <span className="text-slate-400">Payment</span>
