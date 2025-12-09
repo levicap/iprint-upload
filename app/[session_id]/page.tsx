@@ -132,7 +132,7 @@ export default function UploadPage() {
 
       // Call n8n webhook
       const response = await fetch(
-        "https://auto.moezzhioua.com/webhook/file-upload",
+        "https://iprint.moezzhioua.com/webhook/file-upload",
         {
           method: "POST",
           headers: {
