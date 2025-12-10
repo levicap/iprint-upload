@@ -1,224 +1,104 @@
 "use client";
 
-import { useState, useRef, ChangeEvent, DragEvent } from "react";
+import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function UploadPage() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const newFiles = Array.from(e.dataTransfer.files);
-      setFiles(prev => [...prev, ...newFiles]);
-    }
-  };
-
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles]);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleSubmit = () => {
-    if (files.length === 0) {
-      alert("Please select at least one file to upload");
-      return;
-    }
-    
-    // Simulate upload process
-    alert(`Uploading ${files.length} file(s)...`);
-    // In a real app, you would send the files to your backend here
-  };
+  const params = useParams();
+  const sessionId = params.session_id as string;
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col">
-      {/* Header with Logo */}
-      <header className="border-b border-gray-200 py-4 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center">
-            <Image 
-              src="/iprintlogo.png" 
-              alt="iPrint Logo" 
-              width={120} 
-              height={40} 
-              className="object-contain"
-            />
+    <div className="min-h-screen bg-gray-50 text-slate-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-x-hidden">
+      {/* Subtle Background Mesh/Gradient */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-slate-100 to-transparent opacity-70 blur-3xl rounded-full" />
+      </div>
+
+      {/* Modern Sticky Header */}
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3 group cursor-pointer">
+            <div className="relative transition-transform group-hover:scale-105 duration-300">
+              <Image
+                src="/iprintlogo.png"
+                alt="iPrint Logo"
+                width={100}
+                height={32}
+                className="object-contain"
+                priority
+              />
+            </div>
+            <div className="h-6 w-px bg-slate-300 mx-2 hidden sm:block" />
+            <span className="text-sm font-medium text-slate-500 hidden sm:block">
+              Secure Upload Portal
+            </span>
           </div>
-          <h1 className="text-xl font-semibold">Design Upload Portal</h1>
+
+          <div className="flex items-center gap-4">
+            {/* Step Indicator */}
+            <div className="hidden md:flex items-center gap-2 text-sm font-medium">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
+              <span>Upload file</span>
+              <div className="w-8 h-px bg-slate-200" />
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
+              <span className="text-slate-400">Payment</span>
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Upload Your Designs</h1>
-            <p className="text-gray-600">Submit multiple design files for printing</p>
-          </div>
-          
-          <Card className={`border-2 border-dashed transition-all duration-300 ${
-            isDragging ? "border-black bg-gray-50" : "border-gray-300"
-          }`}>
-            <CardHeader>
-              <CardTitle className="text-center">File Upload</CardTitle>
-              <CardDescription className="text-center">
-                Drag and drop files here or click to browse
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div 
-                className="flex flex-col items-center justify-center p-8 cursor-pointer"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={triggerFileInput}
-              >
-                <div className="flex flex-col items-center justify-center">
-                  <svg 
-                    className="w-12 h-12 text-gray-400 mb-4" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24" 
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth="2" 
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    ></path>
-                  </svg>
-                  <p className="text-lg mb-2">Drag & drop files here</p>
-                  <p className="text-gray-500 mb-4">or</p>
-                  <Button 
-                    type="button"
-                    variant="default"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      triggerFileInput();
-                    }}
-                  >
-                    Browse Files
-                  </Button>
-                  <p className="text-gray-500 mt-4 text-sm">Supports PDF, JPG, PNG, AI, PSD and more</p>
-                </div>
-                
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  multiple
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {files.length > 0 && (
-            <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Selected Files ({files.length})</h2>
-                <Button 
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFiles([])}
-                >
-                  Clear All
-                </Button>
-              </div>
-              
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {files.map((file, index) => (
-                  <Card key={index} className="flex items-center justify-between p-3">
-                    <div className="flex items-center truncate">
-                      <svg 
-                        className="w-5 h-5 text-gray-500 mr-3 flex-shrink-0" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth="2" 
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        ></path>
-                      </svg>
-                      <span className="truncate text-black">{file.name}</span>
-                      <Badge variant="secondary" className="ml-2">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </Badge>
-                    </div>
-                    <Button 
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeFile(index)}
-                    >
-                      <svg 
-                        className="w-5 h-5" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth="2" 
-                          d="M6 18L18 6M6 6l12 12"
-                        ></path>
-                      </svg>
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-              
-              <Button
-                type="button"
-                className="w-full mt-8"
-                onClick={handleSubmit}
-              >
-                Upload Designs
-              </Button>
-            </div>
-          )}
+      <main className="flex-grow flex items-center justify-center p-4 sm:p-8 z-10">
+        <div className="text-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900">
+            Welcome to our design upload portal
+          </h1>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 py-6 px-4">
-        <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm">
-          <p>© 2025 iPrint Design Upload. All rights reserved.</p>
+      {/* Modern Dark Footer */}
+      <footer className="bg-slate-900 text-slate-400 py-12 sm:py-16 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
+            <div className="col-span-1 md:col-span-1">
+              <h3 className="text-white text-lg font-bold mb-4">iPrint</h3>
+              <p className="text-sm leading-relaxed">
+                Premium printing services for professionals. High quality, fast turnaround, and secure handling of your creative assets.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Services</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">Digital Printing</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Large Format</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Corporate Gifts</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Support</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">File Guidelines</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Track Order</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm">© 2025 iPrint Design Upload. All rights reserved.</p>
+            <div className="flex gap-6">
+              <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
+              <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
+              <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
