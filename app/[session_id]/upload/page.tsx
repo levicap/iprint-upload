@@ -173,6 +173,7 @@ export default function UploadPage() {
       }
 
       const result = await response.json();
+      console.log("Upload result:", result); // Debug log
 
       setUploadProgress(80);
 
@@ -184,13 +185,18 @@ export default function UploadPage() {
 
       // Handle redirect based on customer type
       if (customerType === "new") {
-        // New customer: n8n returns Stripe URL, redirect to it
-        if (!result.stripe_url) {
-          throw new Error("Payment URL not received");
+        // New customer: check for both payment_url and stripe_url
+        const paymentUrl = result.payment_url || result.stripe_url;
+        
+        if (!paymentUrl) {
+          console.error("Response data:", result); // Debug log
+          throw new Error("Payment URL not received from server");
         }
         
+        console.log("Redirecting to:", paymentUrl); // Debug log
+        
         setTimeout(() => {
-          window.location.href = result.stripe_url;
+          window.location.href = paymentUrl;
         }, 500);
       } else {
         // Existing customer: redirect to payment page for options
