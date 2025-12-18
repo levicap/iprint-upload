@@ -1,24 +1,237 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 
-export default function CustomerTypePage() {
+export default function UploadPage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.session_id as string;
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCustomerType = (type: "new" | "existing") => {
-    setIsLoading(true);
-    // Store customer type in sessionStorage
-    sessionStorage.setItem("customer_type", type);
-    sessionStorage.setItem("session_id", sessionId);
-    
-    // Redirect to upload page
-    router.push(`/${sessionId}/upload`);
+  // Get customer type from sessionStorage
+  const [customerType, setCustomerType] = useState<"new" | "existing" | null>(null);
+  
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Get customer type from sessionStorage
+    const type = sessionStorage.getItem("customer_type") as "new" | "existing";
+    if (!type) {
+      // If no customer type, redirect back to selection
+      router.push(`/${sessionId}`);
+      return;
+    }
+    setCustomerType(type);
+  }, [sessionId, router]);
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
   };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files);
+
+      // Validate file types
+      const validFiles = newFiles.filter((file) => {
+        const validTypes = [
+          "application/pdf",
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "application/postscript",
+          "image/vnd.adobe.photoshop",
+          "image/tiff",
+          "application/illustrator",
+        ];
+        return (
+          validTypes.includes(file.type) ||
+          file.name.match(/\.(pdf|jpg|jpeg|png|ai|psd|tiff|tif|eps)$/i)
+        );
+      });
+
+      if (validFiles.length !== newFiles.length) {
+        setError(
+          "Some files were rejected. Only PDF, JPG, PNG, AI, PSD, TIFF, and EPS files are allowed."
+        );
+      } else {
+        setError("");
+      }
+
+      setFiles((prev) => [...prev, ...validFiles]);
+    }
+  };
+
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...newFiles]);
+      setError("");
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setError("");
+  };
+
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result?.toString().split(",")[1];
+        if (base64) {
+          resolve(base64);
+        } else {
+          reject(new Error("Failed to convert file"));
+        }
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (files.length === 0) {
+      setError("Please select at least one file to upload");
+      return;
+    }
+
+    // Validate file sizes (50MB max per file)
+    const oversizedFiles = files.filter((f) => f.size > 50 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setError(
+        `Some files exceed 50MB: ${oversizedFiles.map((f) => f.name).join(", ")}`
+      );
+      return;
+    }
+
+    if (!customerType) {
+      setError("Customer type not found. Please start over.");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    setUploadProgress(0);
+
+    try {
+      // Convert files to base64
+      setUploadProgress(20);
+      const filesData = await Promise.all(
+        files.map(async (file) => ({
+          name: file.name,
+          data: await convertFileToBase64(file),
+          type: file.type || "application/octet-stream",
+        }))
+      );
+
+      setUploadProgress(40);
+
+      // Determine which webhook to call based on customer type
+      const webhookUrl = customerType === "new"
+        ? "https://iprint.moezzhioua.com/webhook/file-upload"
+        : "https://iprint.moezzhioua.com/webhook/upload-existing-customer";
+
+      // Call appropriate n8n webhook
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          customer_type: customerType,
+          files: filesData,
+        }),
+      });
+
+      setUploadProgress(60);
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Upload result:", result); // Debug log
+
+      setUploadProgress(80);
+
+      if (!result.success) {
+        throw new Error(result.message || "Upload failed");
+      }
+
+      setUploadProgress(100);
+
+      // Handle redirect based on customer type
+      if (customerType === "new") {
+        // New customer: check for both payment_url and stripe_url
+        const paymentUrl = result.payment_url || result.stripe_url;
+        
+        if (!paymentUrl) {
+          console.error("Response data:", result); // Debug log
+          throw new Error("Payment URL not received from server");
+        }
+        
+        console.log("Redirecting to:", paymentUrl); // Debug log
+        
+        setTimeout(() => {
+          window.location.href = paymentUrl;
+        }, 500);
+      } else {
+        // Existing customer: redirect to payment page for options
+        setTimeout(() => {
+          router.push(`/${sessionId}/payment`);
+        }, 500);
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Upload failed. Please try again or contact support."
+      );
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+  };
+
+  // Show loading if customer type not loaded yet
+  if (!customerType) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-x-hidden">
@@ -50,11 +263,11 @@ export default function CustomerTypePage() {
           <div className="flex items-center gap-4">
             {/* Step Indicator */}
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
-              <span>Customer Type</span>
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
+              <span className="text-slate-400">Customer Type</span>
               <div className="w-8 h-px bg-slate-200" />
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
-              <span className="text-slate-400">Upload</span>
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">2</span>
+              <span>Upload file</span>
               <div className="w-8 h-px bg-slate-200" />
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">3</span>
               <span className="text-slate-400">Payment</span>
@@ -65,140 +278,215 @@ export default function CustomerTypePage() {
 
       {/* Main Content */}
       <main className="flex-grow flex items-center justify-center p-4 sm:p-8 z-10">
-        <div className="w-full max-w-2xl animate-fade-in-up">
+        <div className="w-full max-w-3xl animate-fade-in-up">
+          
           <div className="text-center mb-10 space-y-3">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-              Welcome to iPrint
+              {customerType === "new" ? "Upload Your Files" : "Upload Your Files"}
             </h1>
             <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-              Are you a new or existing customer?
+              {customerType === "new" 
+                ? "Upload your designs and proceed to secure payment"
+                : "Upload your designs and choose your payment option"}
             </p>
-            {sessionId && (
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-medium mt-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"/>
-                Session: {sessionId.slice(0, 18)}...
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* New Customer Card */}
-            <div 
-              className={`bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 transition-all duration-300 ${
-                isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:shadow-lg hover:border-blue-300"
-              }`}
-              onClick={isLoading ? undefined : () => handleCustomerType("new")}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
+            <div className="flex items-center justify-center gap-2">
+              {sessionId && (
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-medium">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"/>
+                  Session: {sessionId.slice(0, 18)}...
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">New Customer</h2>
-                <p className="text-slate-600 mb-4 text-sm">
-                  First time ordering with us?
-                </p>
-                <div className="w-full space-y-2 mb-6">
-                  <div className="flex items-center text-xs text-slate-600">
-                    <svg className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Payment required upfront
-                  </div>
-                  <div className="flex items-center text-xs text-slate-600">
-                    <svg className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Instant order processing
-                  </div>
-                  <div className="flex items-center text-xs text-slate-600">
-                    <svg className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Priority production
-                  </div>
-                </div>
-                <button
-                  disabled={isLoading}
-                  className="w-full py-3 px-4 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Loading...
-                    </span>
-                  ) : (
-                    "Continue as New Customer"
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Existing Customer Card */}
-            <div 
-              className={`bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 transition-all duration-300 ${
-                isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:shadow-lg hover:border-green-300"
-              }`}
-              onClick={isLoading ? undefined : () => handleCustomerType("existing")}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">Existing Customer</h2>
-                <p className="text-slate-600 mb-4 text-sm">
-                  Already ordered with us before?
-                </p>
-                <div className="w-full space-y-2 mb-6">
-                  <div className="flex items-center text-xs text-slate-600">
-                    <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Flexible payment options
-                  </div>
-                  <div className="flex items-center text-xs text-slate-600">
-                    <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Pay now or later
-                  </div>
-                  <div className="flex items-center text-xs text-slate-600">
-                    <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Account credit available
-                  </div>
-                </div>
-                <button
-                  disabled={isLoading}
-                  className="w-full py-3 px-4 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Loading...
-                    </span>
-                  ) : (
-                    "Continue as Existing Customer"
-                  )}
-                </button>
+              )}
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                customerType === "new" 
+                  ? "bg-blue-50 border border-blue-100 text-blue-600"
+                  : "bg-green-50 border border-green-100 text-green-600"
+              }`}>
+                {customerType === "new" ? "New Customer" : "Existing Customer"}
               </div>
             </div>
           </div>
 
-          <div className="mt-8 text-center">
-            <p className="text-slate-500 text-sm">
-              Need help? Contact our support team at support@iprint.com
-            </p>
+          {/* Card Container */}
+          <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+            
+            <div className="p-6 sm:p-10">
+              {/* Error Alert */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-shake">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm font-medium text-red-800">{error}</p>
+                </div>
+              )}
+
+              {/* Upload Area */}
+              <div
+                className={`relative group border-2 border-dashed rounded-2xl p-10 sm:p-16 text-center cursor-pointer transition-all duration-300 ease-out ${
+                  isDragging
+                    ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
+                    : uploading
+                    ? "border-slate-200 bg-slate-50 cursor-not-allowed opacity-70"
+                    : "border-slate-300 hover:border-slate-400 hover:bg-slate-50/30"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={uploading ? undefined : triggerFileInput}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  multiple
+                  disabled={uploading}
+                  accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.tiff,.tif,.eps"
+                />
+
+                <div className="flex flex-col items-center justify-center gap-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-300 ${isDragging ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}>
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <p className="text-xl font-semibold text-slate-900">
+                      {isDragging ? "Drop files now" : "Click or drag to upload"}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      PDF, JPG, PNG, AI, PSD, TIFF, EPS (Max 50MB)
+                    </p>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    className="mt-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-full shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50"
+                  >
+                    Browse Computer
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              {uploading && uploadProgress > 0 && (
+                <div className="mt-8 space-y-2 animate-fade-in">
+                  <div className="flex justify-between text-sm font-medium text-slate-700">
+                    <span>
+                      {customerType === "new" 
+                        ? "Uploading & Processing..." 
+                        : "Uploading files..."}
+                    </span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-gray-900 to-black h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  {uploadProgress === 100 && (
+                    <p className="text-center text-sm text-green-600 font-medium mt-2 animate-pulse">
+                      {customerType === "new"
+                        ? "Complete! Redirecting to secure payment..."
+                        : "Complete! Redirecting to payment options..."}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* File List */}
+              {files.length > 0 && (
+                <div className="mt-10">
+                  <div className="flex justify-between items-end mb-4 border-b border-slate-100 pb-2">
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Attached Files <span className="text-slate-400 ml-1 font-normal text-base">({files.length})</span>
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setFiles([])}
+                      disabled={uploading}
+                      className="text-sm text-slate-500 hover:text-red-600 transition-colors font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    {files.map((file, index) => (
+                      <div
+                        key={index}
+                        className="group flex items-center p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 mr-4">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{formatFileSize(file.size)}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          disabled={uploading}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-0 focus:opacity-100"
+                          title="Remove file"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={uploading || files.length === 0}
+                      className="w-full relative group overflow-hidden bg-slate-900 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
+                    >
+                      <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                      <span className="relative flex items-center justify-center gap-2">
+                        {uploading ? (
+                          <>
+                            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            {customerType === "new" 
+                              ? "Upload & Proceed to Payment"
+                              : "Upload & Continue"}
+                            <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Security Footer inside card */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>Files are encrypted and stored securely via Google Drive integration.</span>
+            </div>
           </div>
         </div>
       </main>
