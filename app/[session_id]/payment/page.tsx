@@ -31,7 +31,7 @@ export default function PaymentPage() {
     }
     setCustomerType(type);
 
-    // ⚠️ NEW: Get stored payment URL from sessionStorage
+    // Get stored payment URL from sessionStorage
     const paymentUrl = sessionStorage.getItem("payment_url");
     if (paymentUrl) {
       setStoredPaymentUrl(paymentUrl);
@@ -46,7 +46,7 @@ export default function PaymentPage() {
     setError("");
 
     try {
-      // ⚠️ CHANGED: Use stored payment URL instead of calling webhook
+      // Use stored payment URL instead of calling webhook
       if (storedPaymentUrl) {
         console.log("Using stored payment URL:", storedPaymentUrl);
         // Redirect to Stripe using the stored URL
@@ -101,8 +101,9 @@ export default function PaymentPage() {
     setError("");
 
     try {
+      // ⚠️ CHANGED: New webhook endpoint for existing customer pay later
       const response = await fetch(
-        "https://iprint.moezzhioua.com/webhook/pay-later",
+        "https://iprint.moezzhioua.com/webhook/existing-customer-pay-later",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -116,11 +117,16 @@ export default function PaymentPage() {
         }
       );
 
+      console.log("Pay later response status:", response.status);
+
       if (!response.ok) {
-        throw new Error("Failed to save order");
+        const errorText = await response.text();
+        console.error("Pay later error response:", errorText);
+        throw new Error(`Failed to save order: ${response.status}`);
       }
 
-      await response.json();
+      const result = await response.json();
+      console.log("Pay later result:", result);
 
       // Show success
       setPayLaterSuccess(true);
@@ -129,7 +135,11 @@ export default function PaymentPage() {
       
     } catch (err) {
       console.error("Pay later error:", err);
-      setError("Failed to save order. Please try again.");
+      setError(
+        err instanceof Error 
+          ? err.message 
+          : "Failed to save order. Please try again."
+      );
       setIsProcessing(false);
     }
   };
