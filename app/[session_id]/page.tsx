@@ -30,37 +30,78 @@ export default function CustomerTypePage() {
     
     try {
       if (hasDesignAttachment) {
-        /**
-         * LOGIC: Fetch payment URL from your custom webhook
-         */
-        console.log("Fetching payment URL from custom webhook...");
+        // User has design files attached
+        
+        if (type === "new") {
+          // NEW CUSTOMER with files → Fetch payment URL and redirect to Stripe
+          console.log("New customer with files - fetching payment URL...");
 
-        // Sending the sessionId as a query parameter
-        const response = await fetch(`https://iprint.moezzhioua.com/webhook/payment-url?sessionId=${sessionId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+          const response = await fetch(`https://iprint.moezzhioua.com/webhook/payment-url?sessionId=${sessionId}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
 
-        const data = await response.json();
+          const data = await response.json();
 
-        // Redirecting to the URL returned by your webhook
-        if (data && data.url) {
-          console.log("Redirecting to payment URL:", data.url);
-          window.location.href = data.url;
+          if (data && data.url) {
+            console.log("Redirecting to Stripe checkout:", data.url);
+            // Store payment URL for potential later use
+            sessionStorage.setItem("payment_url", data.url);
+            window.location.href = data.url;
+          } else {
+            throw new Error("Payment URL not found in webhook response");
+          }
+          
         } else {
-          throw new Error("Payment URL not found in webhook response");
-        }
+          // EXISTING CUSTOMER with files → Go to payment options page
+          console.log("Existing customer with files - redirecting to payment page...");
+          
+          // Fetch and store payment URL for the payment page
+          try {
+            const response = await fetch(`https://iprint.moezzhioua.com/webhook/payment-url?sessionId=${sessionId}`, {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
 
+            const data = await response.json();
+            
+            if (data && data.url) {
+              sessionStorage.setItem("payment_url", data.url);
+              console.log("Payment URL stored:", data.url);
+            }
+          } catch (error) {
+            console.error("Error fetching payment URL:", error);
+            // Store fallback URL
+            const fallbackUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
+            sessionStorage.setItem("payment_url", fallbackUrl);
+          }
+          
+          // Redirect to payment options page
+          router.push(`/${sessionId}/payment`);
+        }
+        
       } else {
-        // No files attached, go to upload page
+        // NO FILES ATTACHED - redirect to upload page
+        console.log(`${type} customer without files - redirecting to upload page...`);
         router.push(`/${sessionId}/upload`);
       }
+      
     } catch (error) {
-      console.error("Error fetching payment URL:", error);
-      // Fallback: Send to standard Stripe checkout if webhook fails
-      window.location.href = `https://checkout.stripe.com/c/pay/${sessionId}`;
+      console.error("Error handling customer type:", error);
+      
+      // Fallback behavior
+      if (type === "new") {
+        // New customer: redirect to Stripe
+        const fallbackUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
+        window.location.href = fallbackUrl;
+      } else {
+        // Existing customer: go to payment page anyway
+        router.push(`/${sessionId}/payment`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -89,21 +130,32 @@ export default function CustomerTypePage() {
             <span className="text-sm font-medium text-slate-500 hidden sm:block">Secure Upload Portal</span>
           </div>
           
+          {/* Updated Step Indicator */}
           <div className="hidden md:flex items-center gap-2 text-sm font-medium">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
-              <span>Account</span>
-              <div className="w-8 h-px bg-slate-200" />
-              {!hasDesignAttachment && (
-                <>
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
-                  <span className="text-slate-400">Upload</span>
-                  <div className="w-8 h-px bg-slate-200" />
-                </>
-              )}
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">
-                {hasDesignAttachment ? "2" : "3"}
-              </span>
-              <span className="text-slate-400">Payment</span>
+            {/* Step 1: Customer Type (Current) */}
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
+            <span>Customer Type</span>
+            <div className="w-8 h-px bg-slate-200" />
+            
+            {/* Step 2: Upload (Conditional) */}
+            {hasDesignAttachment ? (
+              // If files attached, skip upload step
+              <>
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
+                <span className="text-slate-400">Payment</span>
+              </>
+            ) : (
+              // If no files, show upload step
+              <>
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
+                <span className="text-slate-400">Upload</span>
+                <div className="w-8 h-px bg-slate-200" />
+                
+                {/* Step 3: Payment */}
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">3</span>
+                <span className="text-slate-400">Payment</span>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -121,6 +173,7 @@ export default function CustomerTypePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* New Customer Card */}
             <div 
               className={`bg-white rounded-2xl border border-slate-100 p-8 transition-all ${
                 isLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-blue-300"
@@ -133,13 +186,28 @@ export default function CustomerTypePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold mb-4">New Customer</h2>
-                <button className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl">
-                  {isLoading ? "Loading..." : "Select"}
+                <h2 className="text-xl font-bold mb-2">New Customer</h2>
+                <p className="text-sm text-slate-600 mb-4">First time with iPrint</p>
+                <button 
+                  disabled={isLoading}
+                  className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    "Continue"
+                  )}
                 </button>
               </div>
             </div>
 
+            {/* Existing Customer Card */}
             <div 
               className={`bg-white rounded-2xl border border-slate-100 p-8 transition-all ${
                 isLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-green-300"
@@ -152,9 +220,23 @@ export default function CustomerTypePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold mb-4">Existing Customer</h2>
-                <button className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl">
-                  {isLoading ? "Loading..." : "Select"}
+                <h2 className="text-xl font-bold mb-2">Existing Customer</h2>
+                <p className="text-sm text-slate-600 mb-4">Already ordered with us</p>
+                <button 
+                  disabled={isLoading}
+                  className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    "Continue"
+                  )}
                 </button>
               </div>
             </div>

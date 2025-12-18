@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 export default function PaymentPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sessionId = params.session_id as string;
   
   const [customerType, setCustomerType] = useState<"new" | "existing" | null>(null);
@@ -15,6 +16,7 @@ export default function PaymentPage() {
   const [showPayLaterForm, setShowPayLaterForm] = useState(false);
   const [payLaterSuccess, setPayLaterSuccess] = useState(false);
   const [storedPaymentUrl, setStoredPaymentUrl] = useState<string | null>(null);
+  const [hasDesignAttachment, setHasDesignAttachment] = useState<boolean>(true);
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
     email: "",
@@ -39,7 +41,13 @@ export default function PaymentPage() {
     } else {
       console.warn("No payment URL found in sessionStorage");
     }
-  }, [sessionId, router]);
+
+    // Check if user came from upload or direct
+    const hasDesign = searchParams.get("hasdesignattachment");
+    if (hasDesign !== null) {
+      setHasDesignAttachment(hasDesign === "true");
+    }
+  }, [sessionId, router, searchParams]);
 
   const handlePayNow = async () => {
     setIsProcessing(true);
@@ -101,9 +109,8 @@ export default function PaymentPage() {
     setError("");
 
     try {
-      // ⚠️ CHANGED: New webhook endpoint for existing customer pay later
       const response = await fetch(
-        "https://iprint.moezzhioua.com/webhook/existing-customer-pay-later",
+        "https://iprint.moezzhioua.com/webhook-test/existing-customer-pay-later",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -180,17 +187,33 @@ export default function PaymentPage() {
             </span>
           </div>
 
+          {/* Updated Step Indicator */}
           <div className="flex items-center gap-4">
-            {/* Step Indicator */}
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
+              {/* Step 1: Customer Type */}
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
               <span className="text-slate-400">Customer Type</span>
               <div className="w-8 h-px bg-slate-200" />
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
-              <span className="text-slate-400">Upload file</span>
-              <div className="w-8 h-px bg-slate-200" />
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">3</span>
-              <span>Payment</span>
+              
+              {/* Step 2: Upload (Conditional) */}
+              {hasDesignAttachment ? (
+                // If files attached, skip to payment (Step 2)
+                <>
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">2</span>
+                  <span>Payment</span>
+                </>
+              ) : (
+                // If no files attached, show upload step
+                <>
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
+                  <span className="text-slate-400">Upload</span>
+                  <div className="w-8 h-px bg-slate-200" />
+                  
+                  {/* Step 3: Payment */}
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">3</span>
+                  <span>Payment</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -226,7 +249,9 @@ export default function PaymentPage() {
               Complete Your Order
             </h1>
             <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-              Your files have been uploaded successfully. Please select a payment option to proceed.
+              {hasDesignAttachment 
+                ? "Your order is ready. Please select a payment option to proceed."
+                : "Your files have been uploaded successfully. Please select a payment option to proceed."}
             </p>
             <div className="flex items-center justify-center gap-2">
               {sessionId && (
