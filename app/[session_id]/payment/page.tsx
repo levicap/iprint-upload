@@ -13,6 +13,8 @@ export default function PaymentPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [showPayLaterForm, setShowPayLaterForm] = useState(false);
+  const [payLaterSuccess, setPayLaterSuccess] = useState(false);
+  const [storedPaymentUrl, setStoredPaymentUrl] = useState<string | null>(null);
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
     email: "",
@@ -28,6 +30,15 @@ export default function PaymentPage() {
       return;
     }
     setCustomerType(type);
+
+    // ⚠️ NEW: Get stored payment URL from sessionStorage
+    const paymentUrl = sessionStorage.getItem("payment_url");
+    if (paymentUrl) {
+      setStoredPaymentUrl(paymentUrl);
+      console.log("Retrieved stored payment URL:", paymentUrl);
+    } else {
+      console.warn("No payment URL found in sessionStorage");
+    }
   }, [sessionId, router]);
 
   const handlePayNow = async () => {
@@ -35,7 +46,16 @@ export default function PaymentPage() {
     setError("");
 
     try {
-      // Call your n8n webhook to get the Stripe URL
+      // ⚠️ CHANGED: Use stored payment URL instead of calling webhook
+      if (storedPaymentUrl) {
+        console.log("Using stored payment URL:", storedPaymentUrl);
+        // Redirect to Stripe using the stored URL
+        window.location.href = storedPaymentUrl;
+        return;
+      }
+
+      // Fallback: If no stored URL, try to get it from webhook
+      console.log("No stored URL, fetching from webhook...");
       const response = await fetch(
         "https://iprint.moezzhioua.com/webhook/get-stripe-url",
         {
@@ -100,10 +120,13 @@ export default function PaymentPage() {
         throw new Error("Failed to save order");
       }
 
-      const result = await response.json();
+      await response.json();
 
-      // Redirect to confirmation page
-      router.push(`/confirmation?order_id=${result.order_id || sessionId}`);
+      // Show success
+      setPayLaterSuccess(true);
+      setShowPayLaterForm(false);
+      setIsProcessing(false);
+      
     } catch (err) {
       console.error("Pay later error:", err);
       setError("Failed to save order. Please try again.");
@@ -278,7 +301,21 @@ export default function PaymentPage() {
                     </div>
                   </div>
                   
-                  {!showPayLaterForm ? (
+                  {payLaterSuccess ? (
+                    // Success Message
+                    <div className="text-center py-4">
+                      <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h4 className="font-bold text-lg text-slate-900 mb-2">Order Saved!</h4>
+                      <p className="text-sm text-slate-600">
+                        We'll send an invoice to<br/>
+                        <span className="font-medium text-slate-900">{customerInfo.email}</span>
+                      </p>
+                    </div>
+                  ) : !showPayLaterForm ? (
                     <>
                       <ul className="space-y-2 mb-6">
                         <li className="flex items-center text-sm text-slate-600">

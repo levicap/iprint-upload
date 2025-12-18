@@ -112,109 +112,113 @@ export default function UploadPage() {
   };
 
   const handleSubmit = async () => {
-    if (files.length === 0) {
-      setError("Please select at least one file to upload");
-      return;
+  if (files.length === 0) {
+    setError("Please select at least one file to upload");
+    return;
+  }
+
+  // Validate file sizes (50MB max per file)
+  const oversizedFiles = files.filter((f) => f.size > 50 * 1024 * 1024);
+  if (oversizedFiles.length > 0) {
+    setError(
+      `Some files exceed 50MB: ${oversizedFiles.map((f) => f.name).join(", ")}`
+    );
+    return;
+  }
+
+  if (!customerType) {
+    setError("Customer type not found. Please start over.");
+    return;
+  }
+
+  setUploading(true);
+  setError("");
+  setUploadProgress(0);
+
+  try {
+    // Convert files to base64
+    setUploadProgress(20);
+    const filesData = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        data: await convertFileToBase64(file),
+        type: file.type || "application/octet-stream",
+      }))
+    );
+
+    setUploadProgress(40);
+
+    // ⚠️ CHANGED: Use same webhook for both customer types
+    const webhookUrl = "https://iprint.moezzhioua.com/webhook/file-upload";
+
+    // Call n8n webhook
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        customer_type: customerType,
+        files: filesData,
+      }),
+    });
+
+    setUploadProgress(60);
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
     }
 
-    // Validate file sizes (50MB max per file)
-    const oversizedFiles = files.filter((f) => f.size > 50 * 1024 * 1024);
-    if (oversizedFiles.length > 0) {
-      setError(
-        `Some files exceed 50MB: ${oversizedFiles.map((f) => f.name).join(", ")}`
-      );
-      return;
+    const result = await response.json();
+    console.log("Upload result:", result);
+
+    setUploadProgress(80);
+
+    if (!result.success) {
+      throw new Error(result.message || "Upload failed");
     }
 
-    if (!customerType) {
-      setError("Customer type not found. Please start over.");
-      return;
+    // ⚠️ CHANGED: Store payment URL in sessionStorage for existing customers
+    const paymentUrl = result.payment_url || result.stripe_url;
+    
+    if (!paymentUrl) {
+      console.error("Response data:", result);
+      throw new Error("Payment URL not received from server");
     }
 
-    setUploading(true);
-    setError("");
+    // Store the payment URL for later use
+    sessionStorage.setItem("payment_url", paymentUrl);
+
+    setUploadProgress(100);
+
+    // Handle redirect based on customer type
+    if (customerType === "new") {
+      // New customer: redirect directly to Stripe
+      console.log("Redirecting to Stripe:", paymentUrl);
+      
+      setTimeout(() => {
+        window.location.href = paymentUrl;
+      }, 500);
+    } else {
+      // Existing customer: redirect to payment page (payment URL is stored in sessionStorage)
+      console.log("Redirecting to payment page with stored URL");
+      
+      setTimeout(() => {
+        router.push(`/${sessionId}/payment`);
+      }, 500);
+    }
+  } catch (err) {
+    console.error("Upload error:", err);
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Upload failed. Please try again or contact support."
+    );
+    setUploading(false);
     setUploadProgress(0);
-
-    try {
-      // Convert files to base64
-      setUploadProgress(20);
-      const filesData = await Promise.all(
-        files.map(async (file) => ({
-          name: file.name,
-          data: await convertFileToBase64(file),
-          type: file.type || "application/octet-stream",
-        }))
-      );
-
-      setUploadProgress(40);
-
-      // Determine which webhook to call based on customer type
-      const webhookUrl = customerType === "new"
-        ? "https://iprint.moezzhioua.com/webhook/file-upload"
-        : "https://iprint.moezzhioua.com/webhook/upload-existing-customer";
-
-      // Call appropriate n8n webhook
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          customer_type: customerType,
-          files: filesData,
-        }),
-      });
-
-      setUploadProgress(60);
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("Upload result:", result); // Debug log
-
-      setUploadProgress(80);
-
-      if (!result.success) {
-        throw new Error(result.message || "Upload failed");
-      }
-
-      setUploadProgress(100);
-
-      // Handle redirect based on customer type
-      if (customerType === "new") {
-        // New customer: check for both payment_url and stripe_url
-        const paymentUrl = result.payment_url || result.stripe_url;
-        
-        if (!paymentUrl) {
-          console.error("Response data:", result); // Debug log
-          throw new Error("Payment URL not received from server");
-        }
-        
-        console.log("Redirecting to:", paymentUrl); // Debug log
-        
-        setTimeout(() => {
-          window.location.href = paymentUrl;
-        }, 500);
-      } else {
-        // Existing customer: redirect to payment page for options
-        setTimeout(() => {
-          router.push(`/${sessionId}/payment`);
-        }, 500);
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Upload failed. Please try again or contact support."
-      );
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
+  }
+};
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
