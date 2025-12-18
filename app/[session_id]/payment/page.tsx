@@ -16,7 +16,7 @@ export default function PaymentPage() {
   const [showPayLaterForm, setShowPayLaterForm] = useState(false);
   const [payLaterSuccess, setPayLaterSuccess] = useState(false);
   const [storedPaymentUrl, setStoredPaymentUrl] = useState<string | null>(null);
-  const [hasDesignAttachment, setHasDesignAttachment] = useState<boolean>(true);
+  const [hasDesignAttachment, setHasDesignAttachment] = useState<boolean>(false);
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
     email: "",
@@ -42,7 +42,7 @@ export default function PaymentPage() {
       console.warn("No payment URL found in sessionStorage");
     }
 
-    // Check if user came from upload or direct
+    // Check if user came from upload or direct (for header display only)
     const hasDesign = searchParams.get("hasdesignattachment");
     if (hasDesign !== null) {
       setHasDesignAttachment(hasDesign === "true");
@@ -62,31 +62,11 @@ export default function PaymentPage() {
         return;
       }
 
-      // Fallback: If no stored URL, try to get it from webhook
-      console.log("No stored URL, fetching from webhook...");
-      const response = await fetch(
-        "https://iprint.moezzhioua.com/webhook/get-stripe-url",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session_id: sessionId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to get payment URL: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (!result.success || !result.stripe_url) {
-        throw new Error(result.error || "Payment URL not available");
-      }
-
-      // Redirect to Stripe
-      window.location.href = result.stripe_url;
+      // Fallback: If no stored URL, construct from session_id
+      console.log("No stored URL, constructing from session_id...");
+      const fallbackUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
+      window.location.href = fallbackUrl;
+      
     } catch (err) {
       console.error("Payment error:", err);
       setError(
@@ -109,8 +89,9 @@ export default function PaymentPage() {
     setError("");
 
     try {
+      // ✅ ALWAYS use this webhook for existing customers, regardless of hasDesignAttachment
       const response = await fetch(
-        "https://iprint.moezzhioua.com/webhook-test/existing-customer-pay-later",
+        "https://iprint.moezzhioua.com/webhook/existing-customer-pay-later",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -187,29 +168,35 @@ export default function PaymentPage() {
             </span>
           </div>
 
-          {/* Updated Step Indicator */}
+          {/* Updated Step Indicator - Shows only relevant steps */}
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
-              {/* Step 1: Customer Type */}
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
-              <span className="text-slate-400">Customer Type</span>
-              <div className="w-8 h-px bg-slate-200" />
-              
-              {/* Step 2: Upload (Conditional) */}
               {hasDesignAttachment ? (
-                // If files attached, skip to payment (Step 2)
+                // 2-STEP FLOW: Customer Type → Payment (files already attached)
                 <>
+                  {/* Step 1: Customer Type (completed) */}
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
+                  <span className="text-slate-400">Customer Type</span>
+                  <div className="w-8 h-px bg-slate-200" />
+                  
+                  {/* Step 2: Payment (current) */}
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">2</span>
                   <span>Payment</span>
                 </>
               ) : (
-                // If no files attached, show upload step
+                // 3-STEP FLOW: Customer Type → Upload → Payment (no files attached)
                 <>
+                  {/* Step 1: Customer Type (completed) */}
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
+                  <span className="text-slate-400">Customer Type</span>
+                  <div className="w-8 h-px bg-slate-200" />
+                  
+                  {/* Step 2: Upload (completed) */}
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                   <span className="text-slate-400">Upload</span>
                   <div className="w-8 h-px bg-slate-200" />
                   
-                  {/* Step 3: Payment */}
+                  {/* Step 3: Payment (current) */}
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">3</span>
                   <span>Payment</span>
                 </>
