@@ -11,12 +11,14 @@ export default function PaymentPage() {
   const sessionId = params.session_id as string;
   
   const [customerType, setCustomerType] = useState<"new" | "existing" | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessingPayNow, setIsProcessingPayNow] = useState(false);
+  const [isProcessingPayLater, setIsProcessingPayLater] = useState(false);
   const [error, setError] = useState("");
   const [showPayLaterForm, setShowPayLaterForm] = useState(false);
   const [payLaterSuccess, setPayLaterSuccess] = useState(false);
   const [storedPaymentUrl, setStoredPaymentUrl] = useState<string | null>(null);
   const [hasDesignAttachment, setHasDesignAttachment] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
     email: "",
@@ -49,8 +51,22 @@ export default function PaymentPage() {
     }
   }, [sessionId, router, searchParams]);
 
+  // Auto-hide toast after 5 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+  };
+
   const handlePayNow = async () => {
-    setIsProcessing(true);
+    setIsProcessingPayNow(true);
     setError("");
 
     try {
@@ -74,22 +90,20 @@ export default function PaymentPage() {
           ? err.message 
           : "Failed to redirect to payment. Please try again."
       );
-      setIsProcessing(false);
+      setIsProcessingPayNow(false);
     }
   };
 
   const handlePayLater = async () => {
     // Validate customer info
     if (!customerInfo.name || !customerInfo.email) {
-      setError("Please provide your name and email");
+      showToast("error", "Please provide your name and email");
       return;
     }
 
-    setIsProcessing(true);
-    setError("");
+    setIsProcessingPayLater(true);
 
     try {
-      // ✅ ALWAYS use this webhook for existing customers, regardless of hasDesignAttachment
       const response = await fetch(
         "https://iprint.moezzhioua.com/webhook/existing-customer-pay-later",
         {
@@ -107,28 +121,30 @@ export default function PaymentPage() {
 
       console.log("Pay later response status:", response.status);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Pay later error response:", errorText);
-        throw new Error(`Failed to save order: ${response.status}`);
-      }
-
       const result = await response.json();
       console.log("Pay later result:", result);
 
-      // Show success
-      setPayLaterSuccess(true);
-      setShowPayLaterForm(false);
-      setIsProcessing(false);
+      // ✅ Check if the response indicates success or failure
+      if (result.success) {
+        // SUCCESS - Show green toast
+        showToast("success", "Order created successfully! We'll send an invoice to your email.");
+        setPayLaterSuccess(true);
+        setShowPayLaterForm(false);
+      } else {
+        // ERROR - Show red toast (email not found or other error)
+        if (result.error === "Email not found") {
+          showToast("error", "Email not found. Please check your email address or contact support.");
+        } else {
+          showToast("error", result.message || "Failed to save order. Please try again.");
+        }
+      }
+
+      setIsProcessingPayLater(false);
       
     } catch (err) {
       console.error("Pay later error:", err);
-      setError(
-        err instanceof Error 
-          ? err.message 
-          : "Failed to save order. Please try again."
-      );
-      setIsProcessing(false);
+      showToast("error", "Failed to save order. Please try again.");
+      setIsProcessingPayLater(false);
     }
   };
 
@@ -168,45 +184,74 @@ export default function PaymentPage() {
             </span>
           </div>
 
-          {/* Updated Step Indicator - Shows only relevant steps */}
+          {/* Updated Step Indicator */}
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
-              {hasDesignAttachment ? (
-                // 2-STEP FLOW: Customer Type → Payment (files already attached)
+              {/* Step 1: Customer Type (always shown, completed) */}
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
+              <span className="text-slate-400">Customer Type</span>
+              <div className="w-8 h-px bg-slate-200" />
+              
+              {!hasDesignAttachment && (
+                // Step 2: Upload (only if no files attached, completed)
                 <>
-                  {/* Step 1: Customer Type (completed) */}
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
-                  <span className="text-slate-400">Customer Type</span>
-                  <div className="w-8 h-px bg-slate-200" />
-                  
-                  {/* Step 2: Payment (current) */}
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">2</span>
-                  <span>Payment</span>
-                </>
-              ) : (
-                // 3-STEP FLOW: Customer Type → Upload → Payment (no files attached)
-                <>
-                  {/* Step 1: Customer Type (completed) */}
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">1</span>
-                  <span className="text-slate-400">Customer Type</span>
-                  <div className="w-8 h-px bg-slate-200" />
-                  
-                  {/* Step 2: Upload (completed) */}
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                   <span className="text-slate-400">Upload</span>
                   <div className="w-8 h-px bg-slate-200" />
-                  
-                  {/* Step 3: Payment (current) */}
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">3</span>
-                  <span>Payment</span>
                 </>
               )}
+              
+              {/* Final Step: Payment (current, number depends on hasDesignAttachment) */}
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">
+                {hasDesignAttachment ? "2" : "3"}
+              </span>
+              <span>Payment</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Error Alert */}
+      {/* Toast Notification - Bottom Right */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-md animate-fade-in">
+          <div className={`rounded-lg p-4 shadow-lg ${
+            toast.type === "success" 
+              ? "bg-green-50 border border-green-200" 
+              : "bg-red-50 border border-red-200"
+          }`}>
+            <div className="flex items-start gap-3">
+              {toast.type === "success" ? (
+                <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${
+                  toast.type === "success" ? "text-green-800" : "text-red-800"
+                }`}>
+                  {toast.message}
+                </p>
+                <button
+                  onClick={() => setToast(null)}
+                  className={`mt-2 text-xs font-medium ${
+                    toast.type === "success" 
+                      ? "text-green-600 hover:text-green-700" 
+                      : "text-red-600 hover:text-red-700"
+                  }`}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Alert (Top Right - Keep for compatibility) */}
       {error && (
         <div className="fixed top-20 right-4 z-50 max-w-md animate-fade-in">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg">
@@ -292,10 +337,10 @@ export default function PaymentPage() {
                   </ul>
                   <button
                     onClick={handlePayNow}
-                    disabled={isProcessing}
+                    disabled={isProcessingPayNow}
                     className="w-full py-3 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isProcessing ? (
+                    {isProcessingPayNow ? (
                       <span className="flex items-center justify-center gap-2">
                         <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -361,7 +406,7 @@ export default function PaymentPage() {
                       </ul>
                       <button
                         onClick={() => setShowPayLaterForm(true)}
-                        disabled={isProcessing}
+                        disabled={isProcessingPayLater}
                         className="w-full py-3 bg-white border border-slate-300 text-slate-900 font-medium rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                       >
                         Choose Pay Later
@@ -379,7 +424,7 @@ export default function PaymentPage() {
                           onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"
                           placeholder="John Doe"
-                          disabled={isProcessing}
+                          disabled={isProcessingPayLater}
                         />
                       </div>
                       <div>
@@ -392,7 +437,7 @@ export default function PaymentPage() {
                           onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"
                           placeholder="john@example.com"
-                          disabled={isProcessing}
+                          disabled={isProcessingPayLater}
                         />
                       </div>
                       <div>
@@ -405,23 +450,23 @@ export default function PaymentPage() {
                           onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"
                           placeholder="+1 (555) 000-0000"
-                          disabled={isProcessing}
+                          disabled={isProcessingPayLater}
                         />
                       </div>
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => setShowPayLaterForm(false)}
-                          disabled={isProcessing}
+                          disabled={isProcessingPayLater}
                           className="flex-1 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
                         >
                           Back
                         </button>
                         <button
                           onClick={handlePayLater}
-                          disabled={isProcessing}
+                          disabled={isProcessingPayLater}
                           className="flex-1 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                         >
-                          {isProcessing ? (
+                          {isProcessingPayLater ? (
                             <span className="flex items-center justify-center gap-2">
                               <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

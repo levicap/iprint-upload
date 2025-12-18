@@ -10,7 +10,8 @@ export default function CustomerTypePage() {
   const searchParams = useSearchParams();
   const sessionId = params.session_id as string;
   
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingNew, setIsLoadingNew] = useState(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [hasDesignAttachment, setHasDesignAttachment] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -23,7 +24,12 @@ export default function CustomerTypePage() {
   }, [searchParams]);
 
   const handleCustomerType = async (type: "new" | "existing") => {
-    setIsLoading(true);
+    // Set loading state based on customer type
+    if (type === "new") {
+      setIsLoadingNew(true);
+    } else {
+      setIsLoadingExisting(true);
+    }
     
     sessionStorage.setItem("customer_type", type);
     sessionStorage.setItem("session_id", sessionId);
@@ -103,7 +109,12 @@ export default function CustomerTypePage() {
         router.push(`/${sessionId}/payment`);
       }
     } finally {
-      setIsLoading(false);
+      // Reset loading state
+      if (type === "new") {
+        setIsLoadingNew(false);
+      } else {
+        setIsLoadingExisting(false);
+      }
     }
   };
 
@@ -114,6 +125,9 @@ export default function CustomerTypePage() {
       </div>
     );
   }
+
+  // Check if any loading is active
+  const isAnyLoading = isLoadingNew || isLoadingExisting;
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 font-sans flex flex-col relative overflow-x-hidden">
@@ -176,9 +190,9 @@ export default function CustomerTypePage() {
             {/* New Customer Card */}
             <div 
               className={`bg-white rounded-2xl border border-slate-100 p-8 transition-all ${
-                isLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-blue-300"
+                isAnyLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-blue-300"
               }`}
-              onClick={isLoading ? undefined : () => handleCustomerType("new")}
+              onClick={isAnyLoading ? undefined : () => handleCustomerType("new")}
             >
               <div className="flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 text-blue-600">
@@ -189,10 +203,10 @@ export default function CustomerTypePage() {
                 <h2 className="text-xl font-bold mb-2">New Customer</h2>
                 <p className="text-sm text-slate-600 mb-4">First time with iPrint</p>
                 <button 
-                  disabled={isLoading}
-                  className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  disabled={isAnyLoading}
+                  className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? (
+                  {isLoadingNew ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -210,9 +224,9 @@ export default function CustomerTypePage() {
             {/* Existing Customer Card */}
             <div 
               className={`bg-white rounded-2xl border border-slate-100 p-8 transition-all ${
-                isLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-green-300"
+                isAnyLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-green-300"
               }`}
-              onClick={isLoading ? undefined : () => handleCustomerType("existing")}
+              onClick={isAnyLoading ? undefined : () => handleCustomerType("existing")}
             >
               <div className="flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mb-6 text-green-600">
@@ -223,10 +237,10 @@ export default function CustomerTypePage() {
                 <h2 className="text-xl font-bold mb-2">Existing Customer</h2>
                 <p className="text-sm text-slate-600 mb-4">Already ordered with us</p>
                 <button 
-                  disabled={isLoading}
-                  className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  disabled={isAnyLoading}
+                  className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? (
+                  {isLoadingExisting ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
