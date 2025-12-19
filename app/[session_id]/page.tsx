@@ -31,9 +31,9 @@ export default function CustomerTypePage() {
         setHasDesignAttachment(hasDesignValue);
         console.log("Retrieved has_design_attachment from storage:", hasDesignValue);
       } else {
-        // Default to true if nothing found
-        setHasDesignAttachment(true);
-        sessionStorage.setItem("has_design_attachment", "true");
+        // Default to false if nothing found (NO files)
+        setHasDesignAttachment(false);
+        sessionStorage.setItem("has_design_attachment", "false");
       }
     }
   }, [searchParams]);
@@ -50,8 +50,12 @@ export default function CustomerTypePage() {
     sessionStorage.setItem("session_id", sessionId);
     
     try {
-      if (hasDesignAttachment) {
-        // User has design files attached
+      // ✅ INVERTED LOGIC:
+      // hasDesignAttachment = false → User HAS files (voice agent sent false) → Go to payment
+      // hasDesignAttachment = true → User NO files (voice agent sent true) → Go to upload
+      
+      if (!hasDesignAttachment) {
+        // ✅ hasDesignAttachment = FALSE → User HAS design files → Go to payment
         
         if (type === "new") {
           // NEW CUSTOMER with files → Fetch payment URL and redirect to Stripe
@@ -106,7 +110,7 @@ export default function CustomerTypePage() {
         }
         
       } else {
-        // NO FILES ATTACHED - redirect to upload page
+        // ✅ hasDesignAttachment = TRUE → User NO files → Go to upload
         console.log(`${type} customer without files - redirecting to upload page...`);
         router.push(`/${sessionId}/upload`);
       }
@@ -159,22 +163,22 @@ export default function CustomerTypePage() {
             <span className="text-sm font-medium text-slate-500 hidden sm:block">Secure Upload Portal</span>
           </div>
           
-          {/* Updated Step Indicator */}
+          {/* Updated Step Indicator - INVERTED LOGIC */}
           <div className="hidden md:flex items-center gap-2 text-sm font-medium">
             {/* Step 1: Customer Type (Current) */}
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">1</span>
             <span>Customer Type</span>
             <div className="w-8 h-px bg-slate-200" />
             
-            {/* Step 2: Upload (Conditional) */}
-            {hasDesignAttachment ? (
-              // If files attached, skip upload step
+            {/* Step 2: Upload (Conditional) - INVERTED */}
+            {!hasDesignAttachment ? (
+              // ✅ hasDesignAttachment = FALSE → Files ARE attached → Skip upload, show payment
               <>
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                 <span className="text-slate-400">Payment</span>
               </>
             ) : (
-              // If no files, show upload step
+              // ✅ hasDesignAttachment = TRUE → NO files → Show upload step
               <>
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                 <span className="text-slate-400">Upload</span>
@@ -194,7 +198,7 @@ export default function CustomerTypePage() {
           <div className="text-center mb-10 space-y-3">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Welcome to iPrint</h1>
             <p className="text-lg text-slate-600">Please choose your customer type to proceed.</p>
-            {hasDesignAttachment && (
+            {!hasDesignAttachment && (
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold mt-2">
                 Files Detected — Direct Checkout Enabled
               </div>

@@ -194,7 +194,7 @@ export default function PaymentPage() {
             </span>
           </div>
 
-          {/* Updated Step Indicator - Based on sessionStorage */}
+          {/* Updated Step Indicator - INVERTED LOGIC */}
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
               {/* Step 1: Customer Type (always shown, completed) */}
@@ -202,14 +202,14 @@ export default function PaymentPage() {
               <span className="text-slate-400">Customer Type</span>
               <div className="w-8 h-px bg-slate-200" />
               
-              {hasDesignAttachment ? (
-                // ✅ FILES ATTACHED: Customer Type → Payment (2 steps)
+              {!hasDesignAttachment ? (
+                // ✅ hasDesignAttachment = FALSE → Files ARE attached → Skip upload, show payment (2 steps)
                 <>
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">2</span>
                   <span>Payment</span>
                 </>
               ) : (
-                // ❌ NO FILES: Customer Type → Upload → Payment (3 steps)
+                // ✅ hasDesignAttachment = TRUE → NO files → Show upload step (3 steps)
                 <>
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                   <span className="text-slate-400">Upload</span>
@@ -294,7 +294,7 @@ export default function PaymentPage() {
               Complete Your Order
             </h1>
             <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-              {hasDesignAttachment 
+              {!hasDesignAttachment 
                 ? "Your order is ready. Please select a payment option to proceed."
                 : "Your files have been uploaded successfully. Please select a payment option to proceed."}
             </p>
