@@ -44,10 +44,20 @@ export default function PaymentPage() {
       console.warn("No payment URL found in sessionStorage");
     }
 
-    // Check if user came from upload or direct (for header display only)
-    const hasDesign = searchParams.get("hasdesignattachment");
-    if (hasDesign !== null) {
-      setHasDesignAttachment(hasDesign === "true");
+    // ✅ Get hasDesignAttachment from sessionStorage
+    const storedHasDesign = sessionStorage.getItem("has_design_attachment");
+    if (storedHasDesign !== null) {
+      setHasDesignAttachment(storedHasDesign === "true");
+      console.log("Retrieved has_design_attachment from storage:", storedHasDesign);
+    } else {
+      // Fallback to URL if not in storage
+      const hasDesign = searchParams.get("hasdesignattachment");
+      if (hasDesign !== null) {
+        const hasDesignValue = hasDesign === "true";
+        setHasDesignAttachment(hasDesignValue);
+        // Store it for future use
+        sessionStorage.setItem("has_design_attachment", hasDesignValue.toString());
+      }
     }
   }, [sessionId, router, searchParams]);
 
@@ -184,7 +194,7 @@ export default function PaymentPage() {
             </span>
           </div>
 
-          {/* Updated Step Indicator */}
+          {/* Updated Step Indicator - Based on sessionStorage */}
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-sm font-medium">
               {/* Step 1: Customer Type (always shown, completed) */}
@@ -192,20 +202,23 @@ export default function PaymentPage() {
               <span className="text-slate-400">Customer Type</span>
               <div className="w-8 h-px bg-slate-200" />
               
-              {!hasDesignAttachment && (
-                // Step 2: Upload (only if no files attached, completed)
+              {hasDesignAttachment ? (
+                // ✅ FILES ATTACHED: Customer Type → Payment (2 steps)
+                <>
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">2</span>
+                  <span>Payment</span>
+                </>
+              ) : (
+                // ❌ NO FILES: Customer Type → Upload → Payment (3 steps)
                 <>
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs">2</span>
                   <span className="text-slate-400">Upload</span>
                   <div className="w-8 h-px bg-slate-200" />
+                  
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">3</span>
+                  <span>Payment</span>
                 </>
               )}
-              
-              {/* Final Step: Payment (current, number depends on hasDesignAttachment) */}
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black text-white text-xs">
-                {hasDesignAttachment ? "2" : "3"}
-              </span>
-              <span>Payment</span>
             </div>
           </div>
         </div>

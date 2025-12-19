@@ -16,10 +16,25 @@ export default function CustomerTypePage() {
 
   useEffect(() => {
     const hasDesign = searchParams.get("hasdesignattachment");
+    
     if (hasDesign !== null) {
-      setHasDesignAttachment(hasDesign === "true");
+      const hasDesignValue = hasDesign === "true";
+      setHasDesignAttachment(hasDesignValue);
+      // ✅ Store in sessionStorage for use across pages
+      sessionStorage.setItem("has_design_attachment", hasDesignValue.toString());
+      console.log("Stored has_design_attachment:", hasDesignValue);
     } else {
-      setHasDesignAttachment(true);
+      // Try to get from sessionStorage if not in URL
+      const storedValue = sessionStorage.getItem("has_design_attachment");
+      if (storedValue !== null) {
+        const hasDesignValue = storedValue === "true";
+        setHasDesignAttachment(hasDesignValue);
+        console.log("Retrieved has_design_attachment from storage:", hasDesignValue);
+      } else {
+        // Default to true if nothing found
+        setHasDesignAttachment(true);
+        sessionStorage.setItem("has_design_attachment", "true");
+      }
     }
   }, [searchParams]);
 
