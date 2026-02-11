@@ -14,11 +14,6 @@ export default function CustomerTypePage() {
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [hasDesignAttachment, setHasDesignAttachment] = useState<boolean | null>(null);
 
-  // New state for email modal
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [email, setEmail] = useState("");
-  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
-
   useEffect(() => {
     const hasDesign = searchParams.get("hasdesignattachment");
     
@@ -43,35 +38,7 @@ export default function CustomerTypePage() {
     }
   }, [searchParams]);
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-
-    setIsSubmittingEmail(true);
-    try {
-      await fetch("https://iprint.moezzhioua.com/webhook/update-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, sessionId }),
-      });
-      
-      // Close modal and proceed with new customer logic
-      setShowEmailModal(false);
-      handleCustomerType("new", true); // Pass a flag to indicate email step is done if needed, or just standard flow
-    } catch (error) {
-      console.error("Error submitting email:", error);
-      // Proceed even if email fails? Or show error? 
-      // Assuming we proceed for smoother UX, creating the customer anyway
-      setShowEmailModal(false);
-      handleCustomerType("new");
-    } finally {
-      setIsSubmittingEmail(false);
-    }
-  };
-
-  const handleCustomerType = async (type: "new" | "existing", emailSubmitted = false) => {
+  const handleCustomerType = async (type: "new" | "existing") => {
     // Set loading state based on customer type
     if (type === "new") {
       setIsLoadingNew(true);
@@ -231,11 +198,6 @@ export default function CustomerTypePage() {
           <div className="text-center mb-10 space-y-3">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Welcome to iPrint</h1>
             <p className="text-lg text-slate-600">Please choose your customer type to proceed.</p>
-            {!hasDesignAttachment && (
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold mt-2">
-                Files Detected — Direct Checkout Enabled
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -244,7 +206,7 @@ export default function CustomerTypePage() {
               className={`bg-white rounded-2xl border border-slate-100 p-8 transition-all ${
                 isAnyLoading ? "opacity-50" : "cursor-pointer hover:shadow-lg hover:border-blue-300"
               }`}
-              onClick={isAnyLoading ? undefined : () => setShowEmailModal(true)}
+              onClick={isAnyLoading ? undefined : () => handleCustomerType("new")}
             >
               <div className="flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 text-blue-600">
@@ -313,65 +275,6 @@ export default function CustomerTypePage() {
       <footer className="bg-slate-900 text-slate-500 py-8 text-center text-sm">
         <p>© 2025 iPrint. All rights reserved.</p>
       </footer>
-
-      {/* Email Collection Modal */}
-      {showEmailModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-100">
-              <h3 className="text-xl font-bold text-slate-900">Enter Your Email</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Please provide your email to help us track your order securely.
-              </p>
-            </div>
-            
-            <form onSubmit={handleEmailSubmit} className="p-6 space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-slate-700">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </div>
-              
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEmailModal(false)}
-                  disabled={isSubmittingEmail}
-                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingEmail || !email}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSubmittingEmail ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Sending...
-                    </>
-                  ) : (
-                    "Continue"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

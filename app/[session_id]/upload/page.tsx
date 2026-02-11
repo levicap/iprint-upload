@@ -293,21 +293,6 @@ export default function UploadPage() {
                 ? "Upload your designs and proceed to secure payment"
                 : "Upload your designs and choose your payment option"}
             </p>
-            <div className="flex items-center justify-center gap-2">
-              {sessionId && (
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-medium">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"/>
-                  Session: {sessionId.slice(0, 18)}...
-                </div>
-              )}
-              <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                customerType === "new" 
-                  ? "bg-blue-50 border border-blue-100 text-blue-600"
-                  : "bg-green-50 border border-green-100 text-green-600"
-              }`}>
-                {customerType === "new" ? "New Customer" : "Existing Customer"}
-              </div>
-            </div>
           </div>
 
           {/* Card Container */}
