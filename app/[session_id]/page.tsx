@@ -61,7 +61,7 @@ export default function CustomerTypePage() {
           // NEW CUSTOMER with files → Fetch payment URL and redirect to Stripe
           console.log("New customer with files - fetching payment URL...");
 
-          const response = await fetch(`https://iprint.moezzhioua.com/webhook/payment-url?sessionId=${sessionId}`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_WEBHOOK_PAYMENT_URL}?sessionId=${sessionId}`, {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
@@ -85,7 +85,7 @@ export default function CustomerTypePage() {
           
           // Fetch and store payment URL for the payment page
           try {
-            const response = await fetch(`https://iprint.moezzhioua.com/webhook/payment-url?sessionId=${sessionId}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_WEBHOOK_PAYMENT_URL}?sessionId=${sessionId}`, {
               method: "GET",
               headers: {
                 "Content-Type": "application/json",
@@ -158,7 +158,7 @@ export default function CustomerTypePage() {
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Image src="/iprintlogo.png" alt="iPrint Logo" width={100} height={32} priority />
+            <Image src={process.env.NEXT_PUBLIC_LOGO_URL ?? '/iprintlogo.png'} alt={`${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'iPrint'} Logo`} width={100} height={32} priority />
             <div className="h-6 w-px bg-slate-300 mx-2 hidden sm:block" />
             <span className="text-sm font-medium text-slate-500 hidden sm:block">Secure Upload Portal</span>
           </div>
@@ -196,7 +196,7 @@ export default function CustomerTypePage() {
       <main className="flex-grow flex items-center justify-center p-4 sm:p-8 z-10">
         <div className="w-full max-w-2xl">
           <div className="text-center mb-10 space-y-3">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Welcome to iPrint</h1>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Welcome to {process.env.NEXT_PUBLIC_BRAND_NAME ?? 'iPrint'}</h1>
             <p className="text-lg text-slate-600">Please choose your customer type to proceed.</p>
           </div>
 
@@ -215,7 +215,7 @@ export default function CustomerTypePage() {
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold mb-2">New Customer</h2>
-                <p className="text-sm text-slate-600 mb-4">First time with iPrint</p>
+                <p className="text-sm text-slate-600 mb-4">First time with {process.env.NEXT_PUBLIC_BRAND_NAME ?? 'iPrint'}</p>
                 <button 
                   disabled={isAnyLoading}
                   className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -273,7 +273,7 @@ export default function CustomerTypePage() {
       </main>
 
       <footer className="bg-slate-900 text-slate-500 py-8 text-center text-sm">
-        <p>© 2025 iPrint. All rights reserved.</p>
+        <p>© {process.env.NEXT_PUBLIC_COPYRIGHT_YEAR ?? '2025'} {process.env.NEXT_PUBLIC_BRAND_NAME ?? 'iPrint'}. All rights reserved.</p>
       </footer>
     </div>
   );

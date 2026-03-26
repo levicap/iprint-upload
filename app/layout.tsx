@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "iPrint Design Upload",
-  description: "Upload your designs for professional printing",
+  title: process.env.NEXT_PUBLIC_SITE_TITLE ?? "iPrint Design Upload",
+  description: process.env.NEXT_PUBLIC_SITE_DESCRIPTION ?? "Upload your designs for professional printing",
 };
 
 export default function RootLayout({

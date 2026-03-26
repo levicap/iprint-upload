@@ -20,8 +20,8 @@ export default function UploadPage() {
           <div className="flex items-center gap-3 group cursor-pointer">
             <div className="relative transition-transform group-hover:scale-105 duration-300">
               <Image
-                src="/iprintlogo.png"
-                alt="iPrint Logo"
+                src={process.env.NEXT_PUBLIC_LOGO_URL ?? '/iprintlogo.png'}
+                alt={`${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'iPrint'} Logo`}
                 width={100}
                 height={32}
                 className="object-contain"
@@ -61,7 +61,7 @@ export default function UploadPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
             <div className="col-span-1 md:col-span-1">
-              <h3 className="text-white text-lg font-bold mb-4">iPrint</h3>
+              <h3 className="text-white text-lg font-bold mb-4">{process.env.NEXT_PUBLIC_BRAND_NAME ?? 'iPrint'}</h3>
               <p className="text-sm leading-relaxed">
                 Premium printing services for professionals. High quality, fast turnaround, and secure handling of your creative assets.
               </p>
@@ -92,7 +92,7 @@ export default function UploadPage() {
           </div>
           
           <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm">© 2025 iPrint Design Upload. All rights reserved.</p>
+            <p className="text-sm">© {process.env.NEXT_PUBLIC_COPYRIGHT_YEAR ?? '2025'} {process.env.NEXT_PUBLIC_SITE_TITLE ?? 'iPrint Design Upload'}. All rights reserved.</p>
             <div className="flex gap-6">
               <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
               <div className="w-5 h-5 bg-slate-800 rounded hover:bg-slate-700 cursor-pointer transition-colors"></div>
